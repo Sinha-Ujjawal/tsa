@@ -33,8 +33,10 @@ def export_xlsx(df: pd.DataFrame, label: str, filename: str):
     )
 
 
-def seasonal_decomposition(series: pd.Series):
-    res = STL(series, robust=True).fit()
+def seasonal_decomposition(
+    series: pd.Series, robust: bool = True, seasonal: int = 7, period: int = 12
+):
+    res = STL(series, robust=robust, seasonal=seasonal, period=period).fit()
 
     df = pd.DataFrame(
         {
@@ -56,29 +58,49 @@ def seasonal_decomposition(series: pd.Series):
 
 st.write("# Time Series Analysis")
 
-uploaded_file = st.file_uploader(label="Choose a csv/ excel file", type=["csv", "xlsx"])
+file_type = st.selectbox(label="filetype", options=["csv", "xlsx"])
+uploaded_file = st.file_uploader(label="Choose a csv/ excel file", type=file_type)
 
 if uploaded_file is not None:
-    if uploaded_file.type == "csv":
+    if file_type == "csv":
         df = pd.read_csv(uploaded_file)
-    else:
+    elif file_type == "xlsx":
         df = pd.read_excel(uploaded_file)
+    else:
+        raise "Unreachable!"
 
     st.text("Your Data:")
     st.write(df)
 
     numeric_cols = list(df.select_dtypes([np.number]).columns)
-    date_cols = list(df.select_dtypes(include=["datetime64"]).columns)
 
-    if len(numeric_cols) and len(date_cols):
-        col_date = st.selectbox(label="Choose date column (ds)", options=date_cols)
+    if len(numeric_cols):
         col_series = st.selectbox(
             label="Choose series column (y)", options=numeric_cols
         )
 
-        series = pd.Series(df[col_series].values, index=df[col_date], name=col_series)
+        series = pd.Series(df[col_series].values, name=col_series)
         display_series(series=series)
-        df = seasonal_decomposition(series=series)
+
+        period = st.slider(
+            label="Period",
+            min_value=2,
+            max_value=12,
+            step=1,
+            value=2,
+        )
+        seasonal = st.slider(
+            label="Seasonal",
+            min_value=3,
+            max_value=13,
+            step=2,
+            value=7,
+        )
+        robust = st.checkbox(label="Robust Filterring")
+
+        df = seasonal_decomposition(
+            series=series, robust=robust, seasonal=seasonal, period=period
+        )
         export_xlsx(
             df=df,
             label="📥 Download Seasonal Decomposition",
@@ -86,9 +108,8 @@ if uploaded_file is not None:
         )
     else:
         st.warning(
-            f"""Your data should contain atleast one numeric and one datetime column
+            f"""Your data should contain atleast one numeric column
             
             Numeric Cols: {numeric_cols}
-            Datetime Cols: {date_cols}
             """
         )
